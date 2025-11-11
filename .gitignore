@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+.env
+.env.*
+
+# OS
+.DS_Store
+
+# Logs and runtime artifacts
+logs/
+runs/
+_tmp_mysql_export.xlsx
+*_mysql_export.xlsx
+_tmp_xtf_config.yaml
+
+# Editors/IDE
+.vscode/
+.idea/
+
+# Misc
+*.ipynb_checkpoints
+
+

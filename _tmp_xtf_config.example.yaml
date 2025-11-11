@@ -1,0 +1,49 @@
+# ============================================
+# XTF 配置文件示例（脱敏版）
+# 用法：复制为 _tmp_xtf_config.yaml 并补齐实际参数后运行
+# ============================================
+
+# Excel 文件路径（程序会在运行时覆盖或使用此路径）
+file_path: ./_tmp_mysql_export.xlsx
+
+# ========== 飞书应用认证信息 ==========
+app_id: YOUR_FEISHU_APP_ID
+app_secret: YOUR_FEISHU_APP_SECRET
+
+# ========== 目标平台类型 ==========
+target_type: bitable
+
+# ========== 同步模式配置 ==========
+sync_mode: full
+index_column: id
+
+# ========== 性能与重试配置 ==========
+batch_size: 1000
+rate_limit_delay: 0.5
+max_retries: 3
+
+# ========== 日志配置 ==========
+log_level: INFO
+
+# ========== 字段类型策略 ==========
+field_type_strategy: base
+
+# ========== MySQL 数据源配置（示例）==========
+source:
+  type: mysql
+  host: 127.0.0.1
+  port: 3306
+  username: your_mysql_user
+  password: your_mysql_password
+  database: your_database
+  # 二选一：sql 或 table（二者同时存在时优先 sql）
+  # sql: "SELECT * FROM your_database.your_table LIMIT 100"
+  table: your_table
+
+# ========== 飞书多维表配置（示例） ==========
+# 注意：建议在 Web 任务中通过 feishu_link 解析，不强制写死
+app_token: YOUR_BITABLE_BASE_APP_TOKEN   # 如无固定 token 可暂留空
+table_id: YOUR_TABLE_ID                  # 如无固定表可暂留空
+create_missing_fields: true
+
+
