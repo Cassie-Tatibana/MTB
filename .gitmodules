@@ -1,0 +1,4 @@
+[submodule "XTF-main"]
+	path = XTF-main
+	url = https://github.com/BlueSkyXN/XTF
+	branch = main
