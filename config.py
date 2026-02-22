@@ -37,7 +37,8 @@ class AppConfig:
     feishu: FeishuConfig = FeishuConfig()
     webhook_url: str = os.getenv("FEISHU_WEBHOOK_URL", "")  # 飞书群机器人Webhook
     webhook_secret: str = os.getenv("FEISHU_WEBHOOK_SECRET", "")  # 若开启“签名校验”，填写机器人密钥；否则留空
-    runtime_dir: str = os.getenv("RUNTIME_DIR", "runs")  # 运行期产物（excel/yaml/log）的目录
+    # 运行期产物（excel/yaml/log）的目录，默认为当前文件所在目录下的 runs
+    runtime_dir: str = os.getenv("RUNTIME_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "runs"))
 
 
 CONFIG = AppConfig()

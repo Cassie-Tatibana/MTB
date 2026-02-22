@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
+import pathlib
 import os
 import time
 import traceback
@@ -13,9 +13,10 @@ import time
 import hmac
 import hashlib
 import base64
+import pandas as pd
 
 from config import CONFIG
-from models import SessionLocal, SyncTask, SyncLog
+from models import SessionLocal, SyncTask, SyncLog, now_cn_naive
 from mysql_to_bitable import (
     read_mysql_to_df,
     write_temp_excel,
@@ -27,16 +28,9 @@ try:
 except Exception:
     ZoneInfo = None
 import re
+import fcntl
 
 
-def _now_cn_naive():
-    """
-    返回北京时间的“naive” datetime（无tzinfo），便于直接落库为本地时间。
-    """
-    if ZoneInfo:
-        tz_cn = ZoneInfo("Asia/Shanghai")
-        return datetime.now(tz=tz_cn).replace(tzinfo=None)
-    return datetime.now()
 
 def _parse_feishu_link(link: str) -> dict:
     """
@@ -168,14 +162,38 @@ def run_task(task_id: int) -> None:
     if not task:
         return
 
+    # 基于 task_id 的文件锁，避免同任务并发
+    # run_dir = Path(CONFIG.runtime_dir)
+    # run_dir.mkdir(parents=True, exist_ok=True)
+    # lock_path = run_dir / f".lock_task_{task.id}"
+    # lock_file = None
+    BASE_DIR = Path(__file__).parent.absolute()  # 当前脚本的绝对目录
+    run_dir = BASE_DIR / CONFIG.runtime_dir       # 拼接你的配置目录(runs)，绝对路径！
+    run_dir.mkdir(parents=True, exist_ok=True)   # 你的原始代码，参数完全正确
+    # 2. 基于task.id生成唯一锁文件，防止同任务并发执行，保留你的核心逻辑
+    lock_path = run_dir / f".lock_task_{task.id}"
+    lock_file = None  # 初始化锁文件句柄
+
+    # 3. 【补充你的文件锁核心逻辑】 加锁逻辑（你大概率漏了这部分，必须加）  
+    try:
+        lock_file = open(lock_path, "w")
+        fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        # 已有同任务在执行，直接返回不写日志，避免重复记录
+        session.close()
+        try:
+            if lock_file:
+                lock_file.close()
+        except Exception:
+            pass
+        return
+
     # 记录日志开始
-    log = SyncLog(task_id=task.id, task_name=task.name, start_time=_now_cn_naive(), status="running", message="start")
+    log = SyncLog(task_id=task.id, task_name=task.name, start_time=now_cn_naive(), status="running", message="start")
     session.add(log)
     session.commit()
     log_id = log.id
 
-    run_dir = Path(CONFIG.runtime_dir)
-    run_dir.mkdir(parents=True, exist_ok=True)
     # 改为每个任务复用固定产物文件，避免每次生成新的 YAML/Excel
     excel_path = run_dir / f"task_{task.id}.xlsx"
     yaml_path = run_dir / f"task_{task.id}.yaml"
@@ -184,6 +202,12 @@ def run_task(task_id: int) -> None:
         # 1) 读 MySQL（全局写死配置），使用任务的 SQL
         mysql_uri = f"mysql+pymysql://{CONFIG.mysql.username}:{CONFIG.mysql.password}@{CONFIG.mysql.host}:{CONFIG.mysql.port}/{CONFIG.mysql.database}?charset=utf8mb4"
         df = read_mysql_to_df(mysql_uri, CONFIG.mysql.database, table=None, sql=str(task.sql_text))
+
+        # 1.1) 时区修复：将所有时间列转换为字符串格式，防止 Excel/飞书 转换时出现时区偏差
+        for col in df.columns:
+            if pd.api.types.is_datetime64_any_dtype(df[col]):
+                df[col] = df[col].dt.strftime('%Y-%m-%d %H:%M:%S')
+
         # 2) 导出 Excel
         write_temp_excel(df, excel_path)
         # 3) 生成 XTF 配置 YAML（不含 source，基于链接解析）
@@ -220,11 +244,11 @@ def run_task(task_id: int) -> None:
 
     # 更新日志与任务状态
     log = session.query(SyncLog).get(log_id)
-    log.end_time = _now_cn_naive()
+    log.end_time = now_cn_naive()
     log.status = status
     log.message = message
     task.last_run_status = status
-    task.updated_at = _now_cn_naive()
+    task.updated_at = now_cn_naive()
     session.commit()
 
     # 失败告警（带回执）
@@ -236,4 +260,15 @@ def run_task(task_id: int) -> None:
             log.message = (log.message or "") + f" | Webhook推送失败: {info_webhook}"
             session.commit()
 
+    # 释放文件锁
+    try:
+        if lock_file:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+            lock_file.close()
+        try:
+            lock_path.unlink()
+        except Exception:
+            pass
+    except Exception:
+        pass
 

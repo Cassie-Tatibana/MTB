@@ -3,6 +3,7 @@
 
 from datetime import datetime
 from typing import Dict
+import os
 
 from flask import Flask, request, redirect, url_for, render_template, flash
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -20,10 +21,14 @@ app = Flask(__name__)
 app.secret_key = "dev-secret"
 # 以北京时区运行调度（确保 cron 在北京时间触发）
 if ZoneInfo:
-    scheduler = BackgroundScheduler(timezone=ZoneInfo("Asia/Shanghai"))
+    scheduler = BackgroundScheduler(
+        timezone=ZoneInfo("Asia/Shanghai"),
+        job_defaults={"max_instances": 1, "coalesce": True},
+    )
 else:
-    scheduler = BackgroundScheduler()
-scheduler.start()
+    scheduler = BackgroundScheduler(
+        job_defaults={"max_instances": 1, "coalesce": True},
+    )
 
 
 def parse_cron_expr(expr: str) -> Dict:
@@ -212,6 +217,13 @@ def bootstrap():
 
 if __name__ == "__main__":
     bootstrap()
+    # 仅在主进程中启动调度器，避免 Flask debug 模式下的双进程重复调度
+    should_start_scheduler = (not app.debug) or (os.environ.get("WERKZEUG_RUN_MAIN") == "true")
+    if should_start_scheduler:
+        try:
+            scheduler.start()
+        except Exception:
+            pass
     app.run(host="0.0.0.0", port=8000, debug=True)
 
 

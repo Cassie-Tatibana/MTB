@@ -1,0 +1,14 @@
+file_path: /home/mj/projects/MTB/runs/task_31.xlsx
+app_id: cli_a8c08773081fd00b
+app_secret: 6MhBjUyv47NH4jHlFuMCjdC8M5xCMm61
+sync_mode: clone
+index_column: 货号
+batch_size: 1000
+rate_limit_delay: 0.5
+max_retries: 3
+log_level: INFO
+field_type_strategy: base
+create_missing_fields: true
+target_type: bitable
+app_token: Ll6RbKd3jag8AKsWxCrc0LZmnAg
+table_id: tblvqiQYsCnzIR4k

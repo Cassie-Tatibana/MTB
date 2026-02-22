@@ -110,10 +110,6 @@ cd 飞书mysql同步
 ```bash
 git submodule update --init --recursive
 ```
-- 将 `XTF-main` 固定到指定提交（如需）：
-```bash
-git -C XTF-main checkout 4a7113faa0f8258f8aba043730d6e42ab4e0a478
-```
 
 ### 运行时配置注入（给二次使用者）
 - 方式A（推荐）：环境变量（或复制 `example.env` 为 `.env`）

@@ -9,9 +9,26 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import declarative_base, sessionmaker
 
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    try:
+        from backports.zoneinfo import ZoneInfo
+    except ImportError:
+        ZoneInfo = None
+
 from config import CONFIG
 
 Base = declarative_base()
+
+
+def now_cn_naive():
+    """返回北京时间的 naive datetime（无时区信息），用于数据库存储"""
+    if ZoneInfo:
+        tz_cn = ZoneInfo("Asia/Shanghai")
+        return datetime.now(tz=tz_cn).replace(tzinfo=None)
+    # Fallback: 假定服务器时间已是合理时间，或者接受 UTC 偏差
+    return datetime.now()
 
 
 class SyncTask(Base):
@@ -34,7 +51,7 @@ class SyncTask(Base):
 
     cron_expr = Column(String(64), nullable=False, default="0 3 * * *")
     last_run_status = Column(String(32), nullable=True)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=now_cn_naive, onupdate=now_cn_naive)
 
 
 class SyncLog(Base):
@@ -43,7 +60,7 @@ class SyncLog(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     task_id = Column(Integer, nullable=False, index=True)
     task_name = Column(String(64), nullable=True)
-    start_time = Column(DateTime, nullable=False, default=datetime.utcnow)
+    start_time = Column(DateTime, nullable=False, default=now_cn_naive)
     end_time = Column(DateTime, nullable=True)
     status = Column(String(16), nullable=True)  # success/fail
     message = Column(Text, nullable=True)
